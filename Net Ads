@@ -1,0 +1,61 @@
+WITH base AS (
+    SELECT *, (date) date_2
+    FROM ops_global.productivity_summary_AR
+  UNION ALL
+    SELECT *, (date) date_2
+    FROM ops_global.productivity_summary_BR
+  UNION ALL
+    SELECT *, (date) date_2
+    FROM ops_global.productivity_summary_CL
+  UNION ALL
+    SELECT *, (date) date_2
+    FROM ops_global.productivity_summary_CO
+  UNION ALL
+    SELECT *, (date) date_2
+    FROM ops_global.productivity_summary_CR
+  UNION ALL
+    SELECT *, (date) date_2
+    FROM ops_global.productivity_summary_EC
+  UNION ALL
+    SELECT *, (date) date_2
+    FROM ops_global.productivity_summary_MX
+  UNION ALL
+    SELECT *, (date) date_2
+    FROM ops_global.productivity_summary_PE
+  UNION ALL
+    SELECT *,(date) date_2
+    FROM ops_global.productivity_summary_UY
+)
+, model AS (
+    SELECT
+        b.country
+        , b.city
+        , DATE_TRUNC(WEEK, b.date_2) week
+        , COUNT(DISTINCT CASE WHEN b.orders > 0 THEN b.storekeeper_id END) total_fleet
+        , LAG(total_fleet) OVER (PARTITION BY b.country, b.city ORDER BY DATE_TRUNC(WEEK, b.date_2)) base_fleet
+        , LAG(total_fleet, 2) OVER (PARTITION BY b.country, b.city ORDER BY DATE_TRUNC(WEEK, b.date_2)) lag_base_fleet
+        , COUNT(DISTINCT CASE WHEN b.orders > 0 AND pool = 'ACTIVATED' THEN b.storekeeper_id END) activated_fleet
+        , COUNT(DISTINCT CASE WHEN b.orders > 0 AND pool = 'REACTIVATED' THEN b.storekeeper_id END) reactivated_fleet
+        , ((activated_fleet + reactivated_fleet - (total_fleet - base_fleet)) * -1) churned_fleet
+        , (base_fleet + activated_fleet + reactivated_fleet + churned_fleet) final_fleet
+    FROM base b
+    WHERE 1=1
+        AND b.date < CURRENT_DATE - 1
+    AND B.COUNTRY = 'BR'
+    GROUP BY  b.country, b.city, week
+)
+SELECT
+    --country
+     city
+    , week
+    , total_fleet
+    --Fleet
+    , activated_fleet 
+    , reactivated_fleet 
+    , churned_fleet 
+FROM model
+WHERE 1=1
+    AND week < DATE_TRUNC(WEEK,CURRENT_DATE)
+
+  
+ORDER BY week DESC, city
